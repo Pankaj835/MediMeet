@@ -157,13 +157,13 @@ const doctorDashboard = async (req, res) => {
 
         const appointments = await appointmentModel.find({ docId })
 
-        let earnings = 0
+       let earnings = 0
 
-        appointments.map((item) => {
-            if (item.isCompleted || item.payment) {
-                earnings += item.amount
-            }
-        })
+       appointments.map((item) => {
+    if (item.isCompleted && item.payment) {
+        earnings += item.amount
+    }
+})
 
         let patients = []
 
