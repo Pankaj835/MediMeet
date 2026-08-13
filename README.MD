@@ -1,152 +1,265 @@
-# Visit : https://medimeet-frontend-gyhy.onrender.com
-
-
 # MediMeet - Doctor Appointment Web App
 
-**MediMeet** is a full-stack web application designed to make healthcare more accessible by simplifying the process of booking doctor appointments. It offers three levels of login: **Patient**, **Doctor**, and **Admin**, each with distinct features tailored to their roles. The app integrates **online payment gateways (Stripe)** to facilitate seamless and secure payments. Built using the **MERN stack** (MongoDB, Express.js, React.js, and Node.js), MediMeet provides an efficient, user-friendly experience for both patients and healthcare providers.
+MediMeet is a full-stack doctor appointment platform built with the MERN stack. It allows patients to discover doctors, book appointments, make online payments, and manage their appointments. Doctors can manage appointments and profiles, while administrators can manage doctors and appointments.
 
-## Tech Stack
+## 🚀 Live Demo
 
-- **Frontend**: React.js
-- **Backend**: Node.js, Express.js
-- **Database**: MongoDB
-- **Payment Gateways**: Stripe
-- **Authentication**: JSON Web Token (JWT)
+- **Patient Portal:** https://medimeet-frontend-fp2w.onrender.com
+- **Doctor / Admin Panel:** https://medimeet-admin-bh7d.onrender.com
+- **Backend API:** https://medimeet-syo2.onrender.com
 
-## Key Features
+## ✨ Features
 
-### 1. Three-Level Authentication
+### 👤 Patient
 
-- **Patient Login**: 
-  - Patients can sign up, log in, and book appointments with doctors.
-  - Manage appointments (view, cancel, or reschedule).
-  - Secure online payment options available (cash, Stripe).
-  - User profile with editable information (name, email, address, gender, birthday, profile picture).
+- User registration and login
+- Browse doctors
+- Filter doctors by speciality
+- View detailed doctor profiles
+- Select appointment date and time
+- Book appointments
+- Online payment using Razorpay
+- View appointment history
+- Cancel appointments
+- Update personal profile
+- Upload profile picture
 
-- **Doctor Login**:
-  - Doctors can log in and manage appointments.
-  - Dashboard displays earnings, number of patients, number of appointments, and latest bookings.
-  - Update profile details (description, fees, address, availability status).
-  - View appointment details (patient info, payment mode, appointment status).
+### 👨‍⚕️ Doctor
 
-- **Admin Login**:
-  - Admins can create and manage doctor profiles.
-  - Dashboard with analytics: total doctors, total appointments, total patients, and recent bookings.
-  - Add new doctors (image, specialty, degree, experience, address, fees, etc.).
-  - View and manage all appointments (cancel or mark as completed).
+- Secure doctor login
+- Doctor dashboard
+- View appointments
+- View patient information
+- Manage appointment status
+- Complete appointments
+- Cancel appointments
+- Track earnings from completed paid appointments
+- Update doctor profile
+- Manage availability
 
-## Home Page
+### 🛠️ Admin
 
-- Features a user-friendly layout where users can:
-  - **View top doctors** and their profiles.
-  - Explore additional sections: About Us, Delivery Information, Privacy Policy, and Get in Touch.
-- **Footer** includes navigation links: Home, About Us, Delivery Info, Privacy Policy, Contact Us.
+- Secure admin login
+- Dashboard with platform statistics
+- Add doctors
+- Edit doctor profiles
+- Delete doctors
+- View all appointments
+- Cancel appointments
+- Mark appointments as completed
+- View doctor and patient information
 
-## All Doctors Page
+## 💳 Payment Integration
 
-- Lists all available doctors.
-- Users can **filter doctors by specialty**.
-- Clicking on a doctor's profile redirects to the **Doctor Appointment Page**.
+MediMeet uses **Razorpay** for online appointment payments.
 
-## About Page
+### Payment Flow
 
-- Provides information about **MediMeet’s vision** and mission.
-- **Why Choose Us** section highlights:
-  - **Efficiency**: Streamlined appointment process.
-  - **Convenience**: Online booking and payment.
-  - **Personalization**: Tailored experience based on user preferences.
-- Footer section with additional links.
+1. Patient selects an appointment.
+2. Backend creates a Razorpay order.
+3. Patient completes the payment.
+4. Backend verifies the Razorpay order.
+5. Appointment is marked as paid.
+6. Doctor can manage the appointment.
 
-## Contact Page
+> Razorpay is currently configured in test mode for the deployed application.
 
-- Contains **office address** and contact details.
-- Section to explore job opportunities.
-- Footer navigation links.
+## 🛠️ Tech Stack
 
-## Doctor Appointment Page
+### Frontend
 
-- Displays detailed information about the selected doctor:
-  - **Profile picture, qualification, experience**, and a brief description.
-  - **Appointment booking form**: Choose date, time, and payment method.
-  - Online payment options: **Cash, Stripe**.
-  - **Related doctors** section at the bottom.
-- Users need to **create an account or log in** before booking an appointment.
+- React.js
+- Tailwind CSS
+- Vite
+- React Router
+- Axios
 
-## User Profile
+### Backend
 
-- Accessible after login.
-- Users can view and edit their profile:
-  - **Upload profile picture**.
-  - Update **name, email, address, gender, and birthday**.
-- View list of upcoming and past appointments.
-- **Logout** option available.
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- JWT
+- bcrypt
+- Cloudinary
 
-## Admin Panel
+### Payments
 
-- **Dashboard**:
-  - Displays statistics: **Number of doctors**, **appointments**, **patients**, and **latest bookings**.
-  - Option to **cancel bookings** if needed.
-- **Add Doctor**:
-  - Form to add a new doctor profile (image, specialty, email, password, degree, address, experience, fees, description).
-- **Doctor List**:
-  - View all registered doctors with options to edit or delete profiles.
-- **Appointments**:
-  - List of all appointments including patient name, age, date, time, doctor name, fees.
-  - Admin actions: **Cancel** or **Mark as Completed**.
+- Razorpay
 
-## Doctor Dashboard
+### Deployment
 
-- **Earnings Overview**:
-  - Total earnings from completed appointments.
-- **Appointments List**:
-  - View detailed list of patient appointments (name, age, date, time, payment mode, status).
-  - Actions: **Mark appointment as completed** or **Cancel appointment**.
-- **Profile Management**:
-  - Doctors can update their **profile information**, including description, fees, address, and availability status.
+- Render
+- MongoDB Atlas
+- Cloudinary
 
-## Payment Integration
+## 🔐 Authentication
 
-- Supports multiple payment methods:
-  - **Cash Payment**
-  - **Stripe Integration**
-- Ensures a secure and smooth payment experience for users.
+MediMeet uses **JSON Web Tokens (JWT)** for authentication.
 
-## Project Setup
+Separate authentication flows are provided for:
 
-To set up and run this project locally:
+- Patients
+- Doctors
+- Administrators
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/your-username/MediMeet.git
-   cd MediMeet
-   ```
-2. **Environment Variables**:
-   - Create a `.env` file in the backend folder:
-     ```env
-     MONGO_URI=your_mongodb_connection_string
-     JWT_SECRET=your_jwt_secret
-     STRIPE_API_KEY=your_stripe_api_key
-     CLOUDINARY_NAME=your_cloudinary_name
-     CLOUDINARY_API_KEY=your_cloudinary_api_key
-     CLOUDINARY_SECRET_KEY =your_cloudinary_secret_key
-     `
+Passwords are securely hashed using **bcrypt**.
 
-3. **Run Backend**:
-   ```bash
-   cd backend
-   npm install
-   npm run dev
-   ```
+## 📁 Project Structure
 
-4. **Run the Application**:
-   - Open a new terminal:
-   ```bash
-   cd frontend
-   npm run dev
-   ```
+```text
+MediMeet/
+├── frontend/       # Patient-facing React application
+├── admin/          # Admin and Doctor dashboard
+├── backend/        # Express API and MongoDB integration
+└── README.md
 
-## Contributing
 
-I welcome contributions! Please feel free to submit issues, fork the repository, and open pull requests.
+⚙️ Local Setup
+1. Clone the repository
+git clone https://github.com/Pankaj835/MediMeet.git
+cd MediMeet
+2. Install Backend Dependencies
+cd backend
+npm install
 
----
+Create a .env file inside the backend directory:
+
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+
+ADMIN_EMAIL=your_admin_email
+ADMIN_PASSWORD=your_admin_password
+
+CLOUDINARY_NAME=your_cloudinary_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_SECRET_KEY=your_cloudinary_secret
+
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_secret
+
+CURRENCY=₹
+
+Start the backend:
+
+npm start
+
+Backend:
+
+http://localhost:4000
+3. Install Frontend Dependencies
+
+Open a new terminal:
+
+cd frontend
+npm install
+
+Create:
+
+frontend/.env
+
+Add:
+
+VITE_BACKEND_URL=http://localhost:4000
+VITE_RAZORPAY_KEY_ID=your_razorpay_key_id
+
+Start the frontend:
+
+npm run dev
+
+Frontend:
+
+http://localhost:5173
+4. Install Admin / Doctor Panel Dependencies
+
+Open another terminal:
+
+cd admin
+npm install
+
+Create:
+
+admin/.env
+
+Add:
+
+VITE_BACKEND_URL=http://localhost:4000
+
+Start the admin/doctor panel:
+
+npm run dev
+
+Admin / Doctor Panel:
+
+http://localhost:5174
+🌐 Deployment Architecture
+
+The application is deployed as three services on Render:
+
+                    ┌──────────────────────┐
+                    │   Patient Frontend   │
+                    │       React/Vite      │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │     Backend API      │
+                    │   Node.js/Express    │
+                    └──────┬───────┬───────┘
+                           │       │
+                ┌──────────┘       └──────────┐
+                ▼                             ▼
+        ┌───────────────┐              ┌──────────────┐
+        │ MongoDB Atlas │              │  Cloudinary   │
+        │    Database   │              │ Image Storage │
+        └───────────────┘              └──────────────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │   Razorpay   │
+                    │   Payments   │
+                    └──────────────┘
+
+                    ┌──────────────────────┐
+                    │ Admin / Doctor Panel │
+                    │       React/Vite     │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                         Backend API
+  
+🔒 Environment Variables
+
+Environment files contain sensitive credentials and should never be committed to GitHub.
+
+Backend
+MONGODB_URI
+JWT_SECRET
+ADMIN_EMAIL
+ADMIN_PASSWORD
+CLOUDINARY_NAME
+CLOUDINARY_API_KEY
+CLOUDINARY_SECRET_KEY
+RAZORPAY_KEY_ID
+RAZORPAY_KEY_SECRET
+CURRENCY
+Frontend
+VITE_BACKEND_URL
+VITE_RAZORPAY_KEY_ID
+Admin / Doctor Panel
+VITE_BACKEND_URL
+📌 Project Highlights
+Full-stack MERN architecture
+Role-based authentication for patients, doctors, and administrators
+REST API communication between frontend and backend
+Appointment scheduling and management
+Razorpay payment integration
+Cloudinary image management
+JWT-based authentication
+Responsive React interfaces
+Production deployment using Render
+MongoDB-based persistent data storage
+👨‍💻 Author
+
+Pankaj
