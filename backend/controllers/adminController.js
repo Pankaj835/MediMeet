@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import validator from "validator";
 import { v2 as cloudinary } from "cloudinary";
 import userModel from "../models/userModel.js";
+import { releaseSlot } from "../utils/slots.js";
 
 // API for admin login
 const loginAdmin = async (req, res) => {
@@ -13,7 +14,8 @@ const loginAdmin = async (req, res) => {
         const { email, password } = req.body
 
         if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-            const token = jwt.sign(email + password, process.env.JWT_SECRET)
+            // payload holds only the role (never credentials) and the token expires
+            const token = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '1d' })
             res.json({ success: true, token })
         } else {
             res.json({ success: false, message: "Invalid credentials" })
@@ -46,7 +48,12 @@ const appointmentCancel = async (req, res) => {
     try {
 
         const { appointmentId } = req.body
+        const appointment = await appointmentModel.findById(appointmentId)
+        if (!appointment || appointment.cancelled) {
+            return res.json({ success: false, message: 'Appointment not found or already cancelled' })
+        }
         await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
+        await releaseSlot(appointment)
 
         res.json({ success: true, message: 'Appointment Cancelled' })
 

@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
+import { releaseSlot } from "../utils/slots.js";
 
 // API for doctor Login 
 const loginDoctor = async (req, res) => {
@@ -53,12 +54,13 @@ const appointmentCancel = async (req, res) => {
         const { docId, appointmentId } = req.body
 
         const appointmentData = await appointmentModel.findById(appointmentId)
-        if (appointmentData && appointmentData.docId === docId) {
+        if (appointmentData && appointmentData.docId === docId && !appointmentData.cancelled) {
             await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
+            await releaseSlot(appointmentData)
             return res.json({ success: true, message: 'Appointment Cancelled' })
         }
 
-        res.json({ success: false, message: 'Appointment Cancelled' })
+        res.json({ success: false, message: 'Cannot cancel this appointment' })
 
     } catch (error) {
         console.log(error)

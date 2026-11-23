@@ -5,14 +5,11 @@ import userModel from "../models/userModel.js";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import { v2 as cloudinary } from 'cloudinary'
-import stripe from "stripe";
 import razorpay from 'razorpay';
+import crypto from 'crypto';
+import { releaseSlot } from "../utils/slots.js";
 
 // Gateway Initialize
-const stripeInstance = process.env.STRIPE_SECRET_KEY
-    ? new stripe(process.env.STRIPE_SECRET_KEY)
-    : null
-
 const razorpayInstance = new razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET,
@@ -133,53 +130,53 @@ const updateProfile = async (req, res) => {
     }
 }
 
-// API to book appointment 
+// API to book appointment
 const bookAppointment = async (req, res) => {
 
     try {
 
         const { userId, docId, slotDate, slotTime } = req.body
-        const docData = await doctorModel.findById(docId).select("-password")
 
-        if (!docData.available) {
-            return res.json({ success: false, message: 'Doctor Not Available' })
+        if (!docId || !slotDate || !slotTime) {
+            return res.json({ success: false, message: 'Missing Details' })
         }
 
-        let slots_booked = docData.slots_booked
+        // Atomic check-and-reserve: the filter only matches if the slot is NOT already taken,
+        // and the $push happens in the same single database operation. Two simultaneous
+        // requests for the same slot cannot both succeed.
+        const slotPath = `slots_booked.${slotDate}`
+        const doctor = await doctorModel.findOneAndUpdate(
+            { _id: docId, available: true, [slotPath]: { $ne: slotTime } },
+            { $push: { [slotPath]: slotTime } }
+        )
 
-        // checking for slot availablity 
-        if (slots_booked[slotDate]) {
-            if (slots_booked[slotDate].includes(slotTime)) {
-                return res.json({ success: false, message: 'Slot Not Available' })
-            }
-            else {
-                slots_booked[slotDate].push(slotTime)
-            }
-        } else {
-            slots_booked[slotDate] = []
-            slots_booked[slotDate].push(slotTime)
+        if (!doctor) {
+            return res.json({ success: false, message: 'Doctor not available or slot already booked' })
         }
 
-        const userData = await userModel.findById(userId).select("-password")
+        try {
+            const userData = await userModel.findById(userId).select("-password")
 
-        delete docData.slots_booked
+            const docData = doctor.toObject()
+            delete docData.password
+            delete docData.slots_booked
 
-        const appointmentData = {
-            userId,
-            docId,
-            userData,
-            docData,
-            amount: docData.fees,
-            slotTime,
-            slotDate,
-            date: Date.now()
+            const newAppointment = new appointmentModel({
+                userId,
+                docId,
+                userData,
+                docData,
+                amount: doctor.fees,
+                slotTime,
+                slotDate,
+                date: Date.now()
+            })
+            await newAppointment.save()
+        } catch (err) {
+            // roll back the reservation if the appointment could not be saved
+            await releaseSlot({ docId, slotDate, slotTime })
+            throw err
         }
-
-        const newAppointment = new appointmentModel(appointmentData)
-        await newAppointment.save()
-
-        // save new slots data in docData
-        await doctorModel.findByIdAndUpdate(docId, { slots_booked })
 
         res.json({ success: true, message: 'Appointment Booked' })
 
@@ -197,23 +194,19 @@ const cancelAppointment = async (req, res) => {
         const { userId, appointmentId } = req.body
         const appointmentData = await appointmentModel.findById(appointmentId)
 
-        // verify appointment user 
-        if (appointmentData.userId !== userId) {
+        // verify appointment exists and belongs to this user
+        if (!appointmentData || appointmentData.userId !== userId) {
             return res.json({ success: false, message: 'Unauthorized action' })
+        }
+
+        if (appointmentData.cancelled) {
+            return res.json({ success: false, message: 'Appointment already cancelled' })
         }
 
         await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
 
-        // releasing doctor slot 
-        const { docId, slotDate, slotTime } = appointmentData
-
-        const doctorData = await doctorModel.findById(docId)
-
-        let slots_booked = doctorData.slots_booked
-
-        slots_booked[slotDate] = slots_booked[slotDate].filter(e => e !== slotTime)
-
-        await doctorModel.findByIdAndUpdate(docId, { slots_booked })
+        // releasing doctor slot
+        await releaseSlot(appointmentData)
 
         res.json({ success: true, message: 'Appointment Cancelled' })
 
@@ -242,11 +235,19 @@ const listAppointment = async (req, res) => {
 const paymentRazorpay = async (req, res) => {
     try {
 
-        const { appointmentId } = req.body
+        const { userId, appointmentId } = req.body
         const appointmentData = await appointmentModel.findById(appointmentId)
 
         if (!appointmentData || appointmentData.cancelled) {
             return res.json({ success: false, message: 'Appointment Cancelled or not found' })
+        }
+
+        if (appointmentData.userId !== userId) {
+            return res.json({ success: false, message: 'Unauthorized action' })
+        }
+
+        if (appointmentData.payment) {
+            return res.json({ success: false, message: 'Appointment already paid' })
         }
 
         // creating options for razorpay payment
@@ -270,80 +271,45 @@ const paymentRazorpay = async (req, res) => {
 // API to verify payment of razorpay
 const verifyRazorpay = async (req, res) => {
     try {
-        const { razorpay_order_id } = req.body
+        const { userId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
+
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return res.json({ success: false, message: 'Missing payment details' })
+        }
+
+        // 1) verify the HMAC-SHA256 signature: only Razorpay (who knows the secret) can produce it
+        const expected = crypto
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .update(razorpay_order_id + '|' + razorpay_payment_id)
+            .digest('hex')
+
+        const a = Buffer.from(expected)
+        const b = Buffer.from(String(razorpay_signature))
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+            return res.json({ success: false, message: 'Payment verification failed' })
+        }
+
+        // 2) cross-check the order with Razorpay and with our own appointment record
         const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
+        const appointment = await appointmentModel.findById(orderInfo.receipt)
 
-        if (orderInfo.status === 'paid') {
-            await appointmentModel.findByIdAndUpdate(orderInfo.receipt, { payment: true })
-            res.json({ success: true, message: "Payment Successful" })
+        if (!appointment || appointment.userId !== userId) {
+            return res.json({ success: false, message: 'Unauthorized action' })
         }
-        else {
-            res.json({ success: false, message: 'Payment Failed' })
+        if (orderInfo.amount !== appointment.amount * 100) {
+            return res.json({ success: false, message: 'Amount mismatch' })
         }
+        if (orderInfo.status !== 'paid') {
+            return res.json({ success: false, message: 'Payment Failed' })
+        }
+
+        // 3) idempotent update: safe if the client retries
+        await appointmentModel.findByIdAndUpdate(appointment._id, { payment: true })
+        res.json({ success: true, message: "Payment Successful" })
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })
     }
-}
-
-// API to make payment of appointment using Stripe
-const paymentStripe = async (req, res) => {
-    try {
-
-        const { appointmentId } = req.body
-        const { origin } = req.headers
-
-        const appointmentData = await appointmentModel.findById(appointmentId)
-
-        if (!appointmentData || appointmentData.cancelled) {
-            return res.json({ success: false, message: 'Appointment Cancelled or not found' })
-        }
-
-        const currency = process.env.CURRENCY.toLocaleLowerCase()
-
-        const line_items = [{
-            price_data: {
-                currency,
-                product_data: {
-                    name: "Appointment Fees"
-                },
-                unit_amount: appointmentData.amount * 100
-            },
-            quantity: 1
-        }]
-
-        const session = await stripeInstance.checkout.sessions.create({
-            success_url: `${origin}/verify?success=true&appointmentId=${appointmentData._id}`,
-            cancel_url: `${origin}/verify?success=false&appointmentId=${appointmentData._id}`,
-            line_items: line_items,
-            mode: 'payment',
-        })
-
-        res.json({ success: true, session_url: session.url });
-
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-}
-
-const verifyStripe = async (req, res) => {
-    try {
-
-        const { appointmentId, success } = req.body
-
-        if (success === "true") {
-            await appointmentModel.findByIdAndUpdate(appointmentId, { payment: true })
-            return res.json({ success: true, message: 'Payment Successful' })
-        }
-
-        res.json({ success: false, message: 'Payment Failed' })
-
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-
 }
 
 export {
@@ -355,7 +321,5 @@ export {
     listAppointment,
     cancelAppointment,
     paymentRazorpay,
-    verifyRazorpay,
-    paymentStripe,
-    verifyStripe
+    verifyRazorpay
 }
